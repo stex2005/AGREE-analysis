@@ -13,246 +13,74 @@ dy =    [   0.9294    0.6941    0.1255  ];
 r =     [   1         0         0       ];
 gr =    [   0.6510    0.6510    0.6510  ];
 
-%% Start and stop
-load('agree_esmacat_J1.mat');
+%% Import data
+load('data/agree_esmacat_J1.mat');
 
 figure();
 
-plot(agree_esmacat.J_elapsed_time_ms,agree_esmacat.J_command);
+plot(agree_esmacat.J_elapsed_time_ms./1000,agree_esmacat.J_command);
+hold on
+plot(agree_esmacat.J_elapsed_time_ms./1000,agree_esmacat.J_status);
+
+ylabel('Esmacat Command','Interpreter','LaTex')
+hold off
+xlabel('Time [s]','Interpreter','LaTex')
+axesH = gca;
+axesH.FontSize=14;
+axesH.FontWeight='bold';
+axesH.TickLabelInterpreter='LaTex';
+axesH.YAxis(1).Color = 'k';
+
+%% Start and stop manual selection
+% [t_start,~] = ginput(1);
+% t_start = round(t_start);
+% [t_end,~] = ginput(1);
+% t_end = round(t_end);
+
+%% Stiffness/damping analysis
+
+% Select stiffness values to be analyzed
+stiffness = [5000 10000 15000 20000];
+damping   = [2000 4500];
+
+figure();
+plot(agree_esmacat.J_elapsed_time_ms,agree_esmacat.I_0_stiffness);
 hold on;
-plot(agree_esmacat.J_elapsed_time_ms,agree_esmacat.J_1_position_rad);
-[t_start,~] = ginput(1);
-t_start = round(t_start);
-[t_end,~] = ginput(1);
-t_end = round(t_end);
+plot(agree_esmacat.J_elapsed_time_ms,agree_esmacat.I_0_damping);
 
 %%
-
-stiffness = [10000 15000 20000];
-
-for i=1:length(stiffness)
-    
-%     figure();
-%     plot(agree_esmacat.J_elapsed_time_ms,agree_esmacat.I_0_stiffness);
-%     hold on;
-%     plot(agree_esmacat.J_elapsed_time_ms,agree_esmacat.I_0_damping);
-    
-    time_index = find(agree_esmacat.I_0_stiffness == stiffness(i) & agree_esmacat.I_0_damping==2000 & agree_esmacat.J_command==107);
-       
-    time = 0:0.001:(time_index(end)-time_index(1))/1000;
-
-    figure();
-    plot(time,agree_esmacat.J_0_position_rad(time_index));
-    hold on
-    plot(time,agree_esmacat.I_0_position_des_rad(time_index));
-
+% For each stiffness level
+for k=1:length(stiffness)
+    for d = 1:length(damping)
+        
+        % find time indexes for each stiffness/damping combination
+        time_index = find(agree_esmacat.I_0_stiffness == stiffness(k) & agree_esmacat.I_0_damping==damping(d) & agree_esmacat.J_command==107);
+        
+        % if stiffness/damping combination is found, plot it
+        if not(isempty(time_index))
+            
+            time = 0:0.001:(time_index(end)-time_index(1))/1000;
+            
+            figure();
+            plot(time,agree_esmacat.J_0_position_rad(time_index));
+            hold on
+            plot(time,agree_esmacat.I_0_position_des_rad(time_index));
+            
+            title(sprintf('J1 joint: Ks = %.2f Kd = %.2f', stiffness(k)./1000,damping(d)./1000),'Interpreter','LaTex')
+            ylabel('Position [rad]','Interpreter','LaTex')
+            hold off
+            xlabel('Time [s]','Interpreter','LaTex')
+            axesH = gca;
+            axesH.FontSize=14;
+            axesH.FontWeight='bold';
+            axesH.TickLabelInterpreter='LaTex';
+            axesH.YAxis(1).Color = 'k';
+        % if not, display warning
+        else
+            fprintf('J1 joint: Ks = %.2f Kd = %.2f not found\n', stiffness(k)./1000,damping(d)./1000);
+        end
+    end
 end
 
-%% Transparency Areas
-
-    fc = 2;
-    fs = 1000;
-    [b,a] = butter(6,fc/(fs/2));
-    agree_esmacat.J_0_position_rad_filt = filtfilt(b,a,agree_esmacat.J_0_position_rad);
-    agree_esmacat.J_1_position_rad_filt = filtfilt(b,a,agree_esmacat.J_1_position_rad);
-    agree_esmacat.J_2_position_rad_filt = filtfilt(b,a,agree_esmacat.J_2_position_rad);
-    agree_esmacat.J_3_position_rad_filt = filtfilt(b,a,agree_esmacat.J_3_position_rad);
-    
-figure();
-    time_4 = 0:0.001:(t_end-t_start)/1000;
-subplot(2,1,1);
-plot(time_4,agree_esmacat.J_0_position_rad_filt(t_start:t_end));
-hold on
-plot(time_4,agree_esmacat.J_1_position_rad_filt(t_start:t_end));
-plot(time_4,agree_esmacat.J_2_position_rad_filt(t_start:t_end));
-plot(time_4,agree_esmacat.J_3_position_rad_filt(t_start:t_end));
-
-t = ginput(10);
-close();
-%% Transparency Mode Plots
-
-duration = 40; %seconds
-    
-figure();
-subplot(2,2,1);
-
-    hold on
-    
-    yyaxis right
-%     plot(time_4,agree_esmacat.J_0_velocity_rad_s(t_start:t_end),'Color',o,'LineWidth',1);
-%     ylabel('Velocity [rad/s]','Interpreter','LaTex')
-    % Torque loadcell
-    plot(time_4,(agree_esmacat.T_0_torque_loadcell(t_start:t_end))./1000,'Color',o,'LineWidth',1);
-    hold on
-    % Torque desired
-%     plot(time_4,agree_esmacat.T_0_torque_des(t_start:t_end)./1000,'Color',gr,'LineWidth',1);
-    ylim([-2.5 2.5]);
-    ylabel('Torque [Nm]','Interpreter','LaTex')
-    
-    rectangle('Position',[round(t(1)) -10 round(t(2))-round(t(1)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(3)) -10 round(t(4))-round(t(3)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(5)) -10 round(t(6))-round(t(5)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(7)) -10 round(t(8))-round(t(7)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(9)) -10 round(t(10))-round(t(9)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     
-%     rectangle('Position',[round(t(1)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(3)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(5)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(7)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(9)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-
-    yyaxis left
-    plot(time_4,agree_esmacat.J_0_position_rad_filt(t_start:t_end),'k','LineWidth',1);
-    hold on
-    plot(time_4,agree_esmacat.I_0_position_des_rad(t_start:t_end),'Color',gr,'LineWidth',1);
-
-    ylim([-1 1]);
-    xlim([0 duration])
-    ylabel('Position [rad]','Interpreter','LaTex')
-    hold off
-    
-    xlabel('Time [s]','Interpreter','LaTex')
-    title('J1 - Shoulder adduction/abduction','Interpreter','LaTex')
-    axesH = gca;
-    axesH.FontSize=14;
-    axesH.FontWeight='bold';
-    axesH.TickLabelInterpreter='LaTex';
-    axesH.YAxis(1).Color = 'k';
-    axesH.YAxis(2).Color = o;
-    
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
-subplot(2,2,2);
-    hold on
-    
-    yyaxis right
-    % Torque loadcell
-    plot(time_4,-(agree_esmacat.T_1_torque_loadcell(t_start:t_end))./1000,'Color',o,'LineWidth',1);
-    hold on
-    % Torque desired
-%     plot(time_4,-agree_esmacat.T_1_torque_des(t_start:t_end)./1000,'Color',gr,'LineWidth',1);
-    ylim([-7.5 7.5]);
-    ylabel('Torque [Nm]','Interpreter','LaTex')
-    
-    rectangle('Position',[round(t(1)) -10 round(t(2))-round(t(1)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(3)) -10 round(t(4))-round(t(3)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(5)) -10 round(t(6))-round(t(5)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(7)) -10 round(t(8))-round(t(7)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(9)) -10 round(t(10))-round(t(9)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-
-%     rectangle('Position',[round(t(1)) -10 4 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(3)) -10 4 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(5)) -10 4 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(7)) -10 4 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(9)) -10 4 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%         
-    yyaxis left
-    plot(time_4,-agree_esmacat.J_1_position_rad_filt(t_start:t_end),'k','LineWidth',1);
-    hold on
-    plot(time_4,-agree_esmacat.I_1_position_des_rad(t_start:t_end),'Color',gr,'LineWidth',1);
-
-    hold off
-    title('J2 - Shoulder flextion/extension','Interpreter','LaTex')
-    ylabel('Position [rad]','Interpreter','LaTex')
-    ylim([0 2]);
-    xlim([0 duration])
-    xlabel('Time [s]','Interpreter','LaTex')
-    axesH = gca;
-    axesH.FontSize=14;
-    axesH.FontWeight='bold';
-    axesH.TickLabelInterpreter='LaTex';
-    axesH.YAxis(1).Color = 'k';
-    axesH.YAxis(2).Color = o;
-         legend('Measured Position','Desired Position','Measured Torque','Interpreter','LaTeX','Location','South');
-
-%%%%%%%%%%%%%%%
-
-subplot(2,2,3);
-    hold on
-
-    yyaxis right
-    % Torque loadcell
-    plot(time_4,(agree_esmacat.T_2_torque_loadcell(t_start:t_end))./1000,'Color',o,'LineWidth',1);
-    hold on
-    % Torque desired
-%     plot(time_4,agree_esmacat.T_2_torque_des(t_start:t_end)./1000,'Color',gr,'LineWidth',1);
-    ylim([-2.5 2.5]);
-    ylabel('Torque [Nm]','Interpreter','LaTex')
-    
-    rectangle('Position',[round(t(1)) -10 round(t(2))-round(t(1)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(3)) -10 round(t(4))-round(t(3)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(5)) -10 round(t(6))-round(t(5)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(7)) -10 round(t(8))-round(t(7)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(9)) -10 round(t(10))-round(t(9)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     
-%     rectangle('Position',[round(t(1)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(3)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(5)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(7)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(9)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%         
-    yyaxis left
-    plot(time_4,agree_esmacat.J_2_position_rad_filt(t_start:t_end),'k','LineWidth',1);
-    hold on
-    plot(time_4,agree_esmacat.I_2_position_des_rad(t_start:t_end),'Color',gr,'LineWidth',1);
-
-    hold off
-    title('J3 - Humeral rotation','Interpreter','LaTex')
-    ylim([-1.5 0.5]);
-    xlim([0 duration])
-    ylabel('Position [rad]','Interpreter','LaTex')
-    xlabel('Time [s]','Interpreter','LaTex')
-    axesH = gca;
-    axesH.FontSize=14;
-    axesH.FontWeight='bold';
-    axesH.TickLabelInterpreter='LaTex';
-    axesH.YAxis(1).Color = 'k';
-    axesH.YAxis(2).Color = o;
-    
-    %%%%%%%%%%%%%%%
-
-   subplot(2,2,4);
-       hold on
-    yyaxis right
-    % Torque loadcell
-    plot(time_4,(agree_esmacat.T_3_torque_loadcell(t_start:t_end))./1000,'Color',o,'LineWidth',1);
-    hold on
-    % Torque desired
-%     plot(time_4,agree_esmacat.T_3_torque_des(t_start:t_end)./1000,'Color',gr,'LineWidth',1);
-    ylim([-5 5]);
-    ylabel('Torque [Nm]','Interpreter','LaTex')
-   
-        
-    rectangle('Position',[round(t(1)) -10 round(t(2))-round(t(1)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(3)) -10 round(t(4))-round(t(3)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(5)) -10 round(t(6))-round(t(5)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(7)) -10 round(t(8))-round(t(7)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-    rectangle('Position',[round(t(9)) -10 round(t(10))-round(t(9)) 20],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     
-%         rectangle('Position',[round(t(1)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(3)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(5)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(7)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     rectangle('Position',[round(t(9)) -5 4 10],'FaceColor',[0.6510    0.6510    0.6510 0.2],'EdgeColor',[  0   0   0   0.2])
-%     
-    yyaxis left
-    plot(time_4,agree_esmacat.J_3_position_rad_filt(t_start:t_end),'k','LineWidth',1);
-    hold on
-    plot(time_4,agree_esmacat.I_3_position_des_rad(t_start:t_end),'Color',gr,'LineWidth',1);
-
-    hold off
-    ylim([0	 2]);
-    xlim([0 duration])
-
-     title('J4 - Elbow flexion/extension','Interpreter','LaTex')
-
-    ylabel('Position [rad]','Interpreter','LaTex')
-    xlabel('Time [s]','Interpreter','LaTex')
-    axesH = gca;
-    axesH.FontSize=14;
-    axesH.FontWeight='bold';
-    axesH.TickLabelInterpreter='LaTex';
-    axesH.YAxis(1).Color = 'k';
-    axesH.YAxis(2).Color = o;
-
+%% Next steps ...
 
